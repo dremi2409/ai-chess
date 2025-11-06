@@ -1,4 +1,7 @@
-torch
-torchvision
+# Fichier requirements.txt minimal pour les imports fournis
 python-chess
+torch
 numpy
+tqdm
+requests
+matplotlib

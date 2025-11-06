@@ -1,8 +1,11 @@
-# Environnement virtuel
-.venv/
+# Python cache
 __pycache__/
+*.py[cod]
+*$py.class
 *.pyc
 
 # Données / modèles lourds
-data/
-models/
+occidental_chess/ai_pre-training/dataset/output_chunks
+occidental_chess/ai_pre-training/dataset/twic_files
+occidental_chess/ai_pre-training/dataset/pgn_files
+occidental_chess/ai_pre-training/checkpoints
