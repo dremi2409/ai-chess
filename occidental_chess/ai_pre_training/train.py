@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 import os
+import sys
 import numpy as np
 from model import ChessEvaluationNet
 from load_data import ChessDataset
@@ -57,13 +58,15 @@ def train_model(model, train_loader, criterion, optimizer, device):
 
 def main():
     # Paramètres d'entraînement
-    BATCH_SIZE = 600000
+    BATCH_SIZE = 10000
     NUM_EPOCHS = 1000
     LEARNING_RATE = 0.001
     SAVE_INTERVAL = 20
-    TEST_INTERVAL = 5
-    TRAIN_DATA_PATH = "../dataset/train_positions.npy"
-    TEST_DATA_PATH = "../dataset/test_positions.npy"
+    TEST_INTERVAL = 1
+    TRAIN_DATA_PATH1 = "dataset/output_chunks/positions_chunk_001.npy"
+    TRAIN_DATA_PATH2 = "dataset/output_chunks/positions_chunk_003.npy"
+    TRAIN_DATA_PATH3 = "dataset/output_chunks/positions_chunk_004.npy"
+    TEST_DATA_PATH = "dataset/output_chunks/positions_chunk_002.npy"
     CHECKPOINT_DIR = "checkpoints"
     RESULTS_DIR = "results"
     
@@ -76,7 +79,10 @@ def main():
     print(f"Utilisation du device : {device}")
     
     # Charger les datasets
-    train_dataset = ChessDataset(TRAIN_DATA_PATH)
+    train_dataset1 = ChessDataset(TRAIN_DATA_PATH1)
+    train_dataset2 = ChessDataset(TRAIN_DATA_PATH2)
+    train_dataset3 = ChessDataset(TRAIN_DATA_PATH3)
+    train_dataset = torch.utils.data.ConcatDataset([train_dataset1, train_dataset2, train_dataset3])
     test_dataset = ChessDataset(TEST_DATA_PATH)
     
     # Créer les DataLoaders
@@ -89,16 +95,17 @@ def main():
     
     test_loader = DataLoader(
         test_dataset,
-        batch_size=len(test_dataset),  # Tout le dataset de test en un seul batch
+        batch_size=20000,  
         shuffle=False,
-        num_workers=0
+        num_workers=6
     )
     
     # Initialiser le modèle
     model = ChessEvaluationNet().to(device)
     
-    # Définir la fonction de loss (L1 Loss = norme 1)
-    criterion = nn.L1Loss()
+    # Définir la fonction de loss (L1Loss = norme 1), (MSE = norme 2)
+    #criterion = nn.L1Loss()
+    criterion = nn.MSELoss()
     
     # Définir l'optimiseur
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
@@ -121,6 +128,11 @@ def main():
     # Variables pour l'early stopping
     last_three_test_losses = []
     
+    # Variables pour suivre le meilleur modèle
+    best_test_loss = float('inf')
+    best_epoch = 0
+    best_model_state = None
+    
     # Boucle d'entraînement
     for epoch in range(1, NUM_EPOCHS + 1):
         # Entraîner pour une epoch
@@ -137,7 +149,22 @@ def main():
             test_losses.append(test_loss)
             test_epochs.append(epoch)
             
-            print(f" - Test Loss : {test_loss:.6f}")
+            print(f" - Test Loss : {test_loss:.6f}", end="")
+            
+            # Vérifier si c'est le meilleur modèle
+            if test_loss < best_test_loss:
+                best_test_loss = test_loss
+                best_epoch = epoch
+                best_model_state = {
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict().copy(),
+                    'optimizer_state_dict': optimizer.state_dict().copy(),
+                    'train_loss': train_loss,
+                    'test_loss': test_loss,
+                }
+                print(f" ★ BEST", end="")
+            
+            print()  # Nouvelle ligne
             
             # Sauvegarder les losses dans les fichiers
             loss_file = os.path.join(RESULTS_DIR, "loss.dat")
@@ -184,20 +211,22 @@ def main():
             }, checkpoint_path)
             print(f"  → Checkpoint sauvegardé : {checkpoint_path}")
     
-    # Sauvegarder le modèle final
-    final_path = os.path.join(CHECKPOINT_DIR, "model_final.pth")
-    torch.save({
-        'epoch': epoch,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'train_loss': train_loss,
-    }, final_path)
-    
-    print(f"\n{'='*70}")
-    print(f"Entraînement terminé !")
-    print(f"Modèle final sauvegardé : {final_path}")
-    print(f"Fichiers de résultats : results/loss.dat et results/test_error.dat")
-    print(f"{'='*70}\n")
+    # Sauvegarder le meilleur modèle
+    if best_model_state is not None:
+        final_path = os.path.join(CHECKPOINT_DIR, "model_final_MSE_30M.pth")
+        torch.save(best_model_state, final_path)
+        
+        print(f"\n{'='*70}")
+        print(f"Entraînement terminé !")
+        print(f"Meilleur modèle sauvegardé : {final_path}")
+        print(f"  - Epoch : {best_epoch}")
+        print(f"  - Test Loss : {best_test_loss:.6f}")
+        print(f"Fichiers de résultats : results/loss.dat et results/test_error.dat")
+        print(f"{'='*70}\n")
+    else:
+        print(f"\n{'='*70}")
+        print(f"Attention : Aucun test n'a été effectué, pas de meilleur modèle sauvegardé")
+        print(f"{'='*70}\n")
 
 
 if __name__ == "__main__":

@@ -1,3 +1,9 @@
+# Commandes pour push
+# git status
+# git add .
+# git commit -m "Votre message de commit"
+# git push origin main
+
 # Python cache
 __pycache__/
 *.py[cod]
@@ -5,7 +11,7 @@ __pycache__/
 *.pyc
 
 # Données / modèles lourds
-occidental_chess/ai_pre-training/dataset/output_chunks
-occidental_chess/ai_pre-training/dataset/twic_files
-occidental_chess/ai_pre-training/dataset/pgn_files
-occidental_chess/ai_pre-training/checkpoints
+occidental_chess/ai_pre_training/dataset/output_chunks
+occidental_chess/ai_pre_training/dataset/twic_files
+occidental_chess/ai_pre_training/dataset/pgn_files
+occidental_chess/ai_pre_training/checkpoints

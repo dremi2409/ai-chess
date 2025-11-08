@@ -18,3 +18,18 @@ class ChessDataset(Dataset):
     
     def __getitem__(self, idx):
         return self.features[idx], self.labels[idx]
+    
+
+class ChessDataset2(Dataset):
+    """Dataset personnalisé pour les positions d'échecs"""
+    def __init__(self, positions):
+        # Charger les positions numpy 
+        self.data = np.array(positions)
+        #print(f"Dataset chargé : {self.data.shape[0]} positions")
+        self.features = torch.FloatTensor(self.data)
+    
+    def __len__(self):
+        return len(self.data)
+    
+    def __getitem__(self, idx):
+        return self.features[idx]

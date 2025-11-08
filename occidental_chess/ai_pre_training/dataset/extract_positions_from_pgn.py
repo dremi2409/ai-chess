@@ -8,7 +8,7 @@ import os
 import glob
 from multiprocessing import Pool, cpu_count
 
-def board_to_numpy(board, position_count, winner):
+def board_to_numpy(board, position_count, winner=10):
     """
     Convertit un plateau chess.Board en array numpy [64 + 8]
     contenant :
@@ -66,6 +66,8 @@ def board_to_numpy(board, position_count, winner):
         positions,
         [turn, halfmove_clock, kingside_white, queenside_white, kingside_black, queenside_black, repetitions_normalized, winner]
     ])
+    if winner == 10:
+        full_state = full_state[:-1]  # Retirer le gagnant si non spécifié
     return full_state
 
 def is_game_valid(game):
