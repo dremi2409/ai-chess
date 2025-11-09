@@ -3,7 +3,6 @@ from pathlib import Path
 
 # Ajoute le dossier parent 'mon_projet' au PYTHONPATH
 projet_root = Path(__file__).parent.parent.parent
-print(projet_root)
 sys.path.insert(0, str(projet_root))
 
 import tkinter as tk
@@ -48,7 +47,7 @@ class Interface_xiangqi:
         self.position_depart = None
         self.objet_drag = None
 
-        # Événements
+        # Événement
         self.canvas.bind("<ButtonPress-1>", self.on_drag_start)
         self.canvas.bind("<B1-Motion>", self.on_drag_motion)
         self.canvas.bind("<ButtonRelease-1>", self.on_drag_stop)
@@ -67,7 +66,13 @@ class Interface_xiangqi:
                 x2 = x1 + self.taille_case
                 y2 = y1 + self.taille_case
                 
-                couleur = "#B58863"
+                if str(ligne)+str(col) == self.plateau.echec:
+                    couleur = "#f00020"
+                elif str(ligne)+str(col) in self.plateau.piece_echec:
+                    couleur = "#1d4023"
+                else:
+                    couleur = "#B58863"
+
                 self.canvas.create_rectangle(x1, y1, x2, y2, fill=couleur, outline="")
 
             #Créer une ligne noire
@@ -126,10 +131,10 @@ class Interface_xiangqi:
         for ligne in range(self.lignes):
             for col in range(self.colonnes):
                 if self.position == 'DROIT': 
-                    piece = self.plateau.obtenir_piece(col, ligne)
+                    piece = self.plateau.obtenir_piece(self.plateau.grille, col, ligne)
 
                 else:
-                    piece = self.plateau.obtenir_piece_inverse(col, ligne)
+                    piece = self.plateau.obtenir_piece_inverse(self.plateau.grille, col, ligne)
 
                 if piece != "-":
                     image = ImageTk.PhotoImage(Image.open(os.path.join(image_path,piece.symbole()+".png")).resize((60,60)))
@@ -166,10 +171,10 @@ class Interface_xiangqi:
         self.drag_data["lin"] = ligne
         
         if self.position == 'DROIT': 
-            piece = self.plateau.obtenir_piece(col, ligne)
+            piece = self.plateau.obtenir_piece(self.plateau.grille, col, ligne)
 
         else:
-            piece = self.plateau.obtenir_piece_inverse(col, ligne)
+            piece = self.plateau.obtenir_piece_inverse(self.plateau.grille, col, ligne)
 
         self.drag_data["item"] = self.canvas.find_closest(event.x, event.y)[0]
         self.drag_data["x"] = event.x
@@ -202,14 +207,18 @@ class Interface_xiangqi:
         if self.plateau.grille_coups[self.drag_data["lin"]][self.drag_data["col"]] and self.drag_data["item"] != None and 0 <= col < self.colonnes and 0 <= ligne < self.lignes :
             if str(ligne)+str(col) in self.plateau.grille_coups[self.drag_data["lin"]][self.drag_data["col"]]:
                 self.plateau.deplacer_piece(self.drag_data["col"],self.drag_data["lin"],col,ligne)
+                
+                
                 if self.plateau.victoire == Couleur.RED:
                     # Message de victoire
+                    self.dessiner_plateau()
                     messagebox.showinfo("Information", "Victoire rouge !")
                     # Fermer la fenêtre principale
                     root.destroy()
 
                 if self.plateau.victoire == Couleur.BLACK:
                     # Message de victoire
+                    self.dessiner_plateau()
                     messagebox.showinfo("Information", "Victoire noire !")
                     # Fermer la fenêtre principale
                     root.destroy()
@@ -223,13 +232,7 @@ class Interface_xiangqi:
 
 # Lancement de l'application
 if __name__ == "__main__":
-    while True:
-        try:
-            root = tk.Tk()
-            # Vous pouvez modifier les dimensions ici : InterfaceEchecs(root, lignes=10, colonnes=10)
-            app = Interface_xiangqi(root)
-            root.mainloop()
-
-        except:
-            print("La partie est finie")
-
+    root = tk.Tk()
+    # Vous pouvez modifier les dimensions ici : InterfaceEchecs(root, lignes=10, colonnes=10)
+    app = Interface_xiangqi(root)
+    root.mainloop()
