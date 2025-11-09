@@ -118,9 +118,6 @@ class Plateau:
         
         self.historique.append(nouvelle_position)
     
-    def coup_legal(self, init_col: int,init_lin: int,col: int,ligne: int):
-        return True
-    
     def calcul_coups_legaux(self, col: int, ligne: int):
         piece = self.obtenir_piece(col,ligne)
         if piece != "-":
@@ -152,8 +149,8 @@ class Plateau:
             return None            
         if len(list_coup)==0:
             return None
+        
         return list_coup
-                    
 
     def _coupsoldat(self, piece_couleur, col, ligne):
         list_coup = []
@@ -216,7 +213,6 @@ class Plateau:
                 list_coup.append(str(ligne-1)+str(col+1))
 
         if piece_couleur == Couleur.BLACK:
-            #Va en diagonale de deux cases sauf si bloqué
             if self.check_coup(ligne-1,col-1,Couleur.BLACK,[0,3],[3,6]):
                 list_coup.append(str(ligne-1)+str(col-1))
             if self.check_coup(ligne+1,col+1,Couleur.BLACK,[0,3],[3,6]):
@@ -257,7 +253,7 @@ class Plateau:
     def _couproi(self, piece_couleur, col, ligne):
         list_coup = []
         if piece_couleur == Couleur.RED:
-            #Va en diagonale dans un périmètre restreint
+            #Va tout droit dans un périmètre restreint
             if self.check_coup(ligne-1,col,Couleur.RED,[7,10],[3,6]):
                 list_coup.append(str(ligne-1)+str(col))
             if self.check_coup(ligne+1,col,Couleur.RED,[7,10],[3,6]):
@@ -276,7 +272,6 @@ class Plateau:
                     list_coup.append(str(lK)+str(col))
 
         if piece_couleur == Couleur.BLACK:
-            #Va en diagonale de deux cases sauf si bloqué
             if self.check_coup(ligne-1,col,Couleur.BLACK,[0,3],[3,6]):
                 list_coup.append(str(ligne-1)+str(col))
             if self.check_coup(ligne+1,col,Couleur.BLACK,[0,3],[3,6]):

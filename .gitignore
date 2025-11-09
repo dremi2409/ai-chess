@@ -15,6 +15,7 @@ venv/
 venv/
 env/
 ENV/
+.venv/
 
 # Données / modèles lourds
 occidental_chess/ai_pre_training/dataset/output_chunks
