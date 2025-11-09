@@ -10,6 +10,12 @@ __pycache__/
 *$py.class
 *.pyc
 
+# Ignore virtual environment directories
+venv/
+venv/
+env/
+ENV/
+
 # Données / modèles lourds
 occidental_chess/ai_pre_training/dataset/output_chunks
 occidental_chess/ai_pre_training/dataset/twic_files
