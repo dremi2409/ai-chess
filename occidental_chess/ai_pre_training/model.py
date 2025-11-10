@@ -26,7 +26,7 @@ class ChessEvaluationNet(nn.Module):
         self.tanh = nn.Tanh()
         
         # Afficher le nombre de paramètres
-        self._print_num_parameters()
+        #self._print_num_parameters()
     
     def _print_num_parameters(self):
         """Affiche le nombre total de paramètres du réseau"""
