@@ -58,6 +58,7 @@ class Plateau:
         self.piece_echec = []
         self.repet = 1
         self.pas_de_prise = 0
+        self.nombre_repet = 1
 
         if plt:
             self.grille=plt
@@ -134,11 +135,12 @@ class Plateau:
 
         #Créer une liste "id" pour l'historique, les pats, et le ML
         nouvelle_position =  "".join(list(map(lambda x: x if x=="-" else x.symbole(), chain.from_iterable(self.grille))))
-        compteur_nulle=0
+        compteur_nulle=1
         for pos in self.historique:
             if pos == nouvelle_position:
                 compteur_nulle+=1
-        if compteur_nulle == 3:
+        self.nombre_repet = compteur_nulle
+        if self.nombre_repet == 4:
             self.victoire = Couleur.GREY
 
         self.repet = compteur_nulle + 1
@@ -240,8 +242,6 @@ class Plateau:
             for col in range(self.colonnes):
                 coups_possible = self.calcul_coups_legaux(self.grille, col,ligne)
                 if coups_possible:
-                    if ligne==9:
-                        print(coups_possible, localisation_roi)
                     if localisation_roi in coups_possible:
                         if not(self.echec):
                             self.echec = localisation_roi
