@@ -149,11 +149,11 @@ def minimax_search(board, model, device, depth, top_n, initial_depth, alpha=-flo
     for indice, move in enumerate(legal_moves):
         board_temp = board.copy()
         board_temp.push(move)
-        if isinstance(evaluations.tolist(), (list, tuple)):
-            val = evaluations.tolist()[indice]
-        else:
+        #if isinstance(evaluations.tolist(), (list, tuple)):
+            #val = evaluations.tolist()[indice]
+        #else:
             # Sinon, c'est juste un float ou une valeur scalaire
-            val = evaluations.tolist()
+            #val = evaluations.tolist()
         #print(f"Move: {move}, Evaluation: {val}\n{board_temp}")
     # Trier et sélectionner les top_n meilleurs coups
     if is_maximizing:
@@ -165,17 +165,17 @@ def minimax_search(board, model, device, depth, top_n, initial_depth, alpha=-flo
     best_value = -float('inf') if is_maximizing else float('inf')
     best_move = None
 
-    # Explorer chaque coup candidat
-    for idx in top_indices:
-        move = legal_moves[int(idx)]
-        board_temp = board.copy()
-        board_temp.push(move)
-        if isinstance(evaluations.tolist(), (list, tuple)):
-            val = evaluations.tolist()[idx]
-        else:
-            # Sinon, c'est juste un float ou une valeur scalaire
-            val = evaluations.tolist()
-        #print(f"Coup candidat: {move} at depth {depth} with eval {val}")
+    # # Explorer chaque coup candidat
+    # for idx in top_indices:
+    #     move = legal_moves[int(idx)]
+    #     board_temp = board.copy()
+    #     board_temp.push(move)
+    #     if isinstance(evaluations.tolist(), (list, tuple)):
+    #         val = evaluations.tolist()[idx]
+    #     else:
+    #         # Sinon, c'est juste un float ou une valeur scalaire
+    #         val = evaluations.tolist()
+    #     print(f"Coup candidat: {move} at depth {depth} with eval {val}")
         
     # Explorer chaque coup candidat
     for idx in top_indices:
@@ -185,18 +185,24 @@ def minimax_search(board, model, device, depth, top_n, initial_depth, alpha=-flo
         #print(f"Coup candidat: {move} at depth {depth}")
         
         # Appel récursif - retourne toujours un float (pas un tuple)
-        eval_score = minimax_search(
-            board_temp, 
-            model, 
-            device, 
-            depth - 1, 
-            top_n,
-            initial_depth,
-            alpha, 
-            beta, 
-            not is_maximizing
-        )
-        
+        if depth > 1:
+            eval_score = minimax_search(
+                board_temp, 
+                model, 
+                device, 
+                depth - 1, 
+                top_n,
+                initial_depth,
+                alpha, 
+                beta, 
+                not is_maximizing
+            )
+        else:
+            if isinstance(evaluations.tolist(), (list, tuple)):
+                eval_score = evaluations.tolist()[idx]
+            else:
+                # Sinon, c'est juste un float ou une valeur scalaire
+                eval_score = evaluations.tolist()
         # Mise à jour de la meilleure valeur
         if is_maximizing:
             if eval_score > best_value:
@@ -235,7 +241,7 @@ def select_best_move(board, legal_moves, model, device, use_deep_search=True):
     """
     #print(f"Selecting best move. Deep search: {use_deep_search}")
     if use_deep_search:
-        return minimax_search(board, model, device, depth=3, top_n=3, initial_depth=3)
+        return minimax_search(board, model, device, depth=7, top_n=3, initial_depth=7)
     else:
         # Ancienne méthode (1 coup à l'avance)
         checkmate_move = find_checkmate_move(board, legal_moves)
@@ -304,7 +310,7 @@ def get_game_outcome(board):
     return result, reason
 
 
-def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, opening_move=None):
+def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, opening_move=None, max_moves=200):
     """
     Fait jouer deux IA l'une contre l'autre.
     
@@ -315,6 +321,7 @@ def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, open
         white_name: Nom de l'IA jouant les blancs
         black_name: Nom de l'IA jouant les noirs
         opening_move: Premier coup forcé pour les blancs (optionnel)
+        max_moves: Nombre maximum de coups avant nulle forcée (défaut: 100)
     
     Returns:
         dict: Statistiques de la partie
@@ -335,12 +342,17 @@ def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, open
         if move in board.legal_moves:
             board.push(move)
             move_number += 1
-            print(f"Move {move_number} - Blancs ({white_name}): {move} (ouverture forcée)")
+            #print(f"Move {move_number} - Blancs ({white_name}): {move} (ouverture forcée)")
         else:
             print(f"ERREUR: Coup d'ouverture {opening_move} invalide!")
             return None
     
     while not board.is_game_over():
+        # Vérifier la limite de coups
+        if move_number >= max_moves:
+            #print(f"\nLimite de {max_moves} coups atteinte - Nulle forcée")
+            break
+        
         # Vérifier la triple répétition avant de continuer
         if board.can_claim_threefold_repetition():
             break
@@ -349,52 +361,30 @@ def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, open
         legal_moves = list(board.legal_moves)
         
         if board.turn == chess.WHITE:
-            #print(f"Évaluation de la position pour les Blancs ({white_name})...")
-            move, evaluation = select_best_move(board, legal_moves, model_white, device)
+            move, _ = select_best_move(board, legal_moves, model_white, device)
             if move is None:
                 print("ERREUR: Aucun coup valide trouvé pour les Blancs!")
                 break
-            eval_str = f"(éval: {evaluation:.2f})" if evaluation is not None else "(mat forcé)"
-            #print(f"Move {move_number} - Blancs ({white_name}): {move} {eval_str}")
+            #eval_str = f"(éval: {evaluation:.2f})" if evaluation is not None else "(mat forcé)"
         else:
-            #print(f"Évaluation de la position pour les Noirs ({black_name})...")
-            move, evaluation = select_best_move(board, legal_moves, model_black, device)
+            move, _ = select_best_move(board, legal_moves, model_black, device)
             if move is None:
-                #print("ERREUR: Aucun coup valide trouvé pour les Noirs!")
                 break
-            eval_str = f"(éval: {evaluation:.2f})" if evaluation is not None else "(mat forcé)"
-            #print(f"Move {move_number} - Noirs ({black_name}): {move} {eval_str}")
-
+            #eval_str = f"(éval: {evaluation:.2f})" if evaluation is not None else "(mat forcé)"
         board.push(move)
-        
-        #if move_number % 10 == 0:
-        #print(str(board) + "\n")
-    
+        print(f"Move {move_number} - {'Blancs' if board.turn == chess.BLACK else 'Noirs'} ")
+        print(f"\nBoard:\n{board}")
+    #print(f"\nBoard final:\n {board}")
     # Obtenir le résultat et la raison
     result, reason = get_game_outcome(board)
+    
+    # Si la partie s'est terminée par limite de coups, forcer le résultat à nulle
+    if move_number >= max_moves and not board.is_game_over():
+        result = "1/2-1/2"
+        reason = f"Nulle forcée après {max_moves} coups"
+    
     total_moves = len(board.move_stack)
-    total_plies = board.ply()  # Nombre de demi-coups
-    
-    print("\n" + "="*50)
-    print("STATISTIQUES DE LA PARTIE")
-    print("="*50)
-    print(f"Nombre total de coups: {total_moves}")
-    print(f"Nombre de demi-coups (plies): {total_plies}")
-    print(f"Résultat: {result}")
-    print(f"Raison: {reason}")
-    
-    if result == "1-0":
-        print(f"Vainqueur: {white_name} (Blancs)")
-    elif result == "0-1":
-        print(f"Vainqueur: {black_name} (Noirs)")
-    else:
-        print("Match nul")
-    
-    print("="*50)
-    print("\nPOSITION FINALE")
-    print("="*50)
-    print(board)
-    print("="*50 + "\n")
+    total_plies = board.ply()
     
     # Retourner les statistiques
     stats = {
@@ -409,11 +399,11 @@ def play_ai_vs_ai(model_white, model_black, device, white_name, black_name, open
     return stats
 
 
-def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2="L1"):
+def play_tournament(model_path_1, model_path_2, model_name_1="model1", model_name_2="model2"):
     """
-    Fait jouer un tournoi entre deux IA avec 10 parties:
-    - 5 parties avec chaque IA jouant les blancs
-    - 5 ouvertures différentes: e2e4, d2d4, c2c4, g1f3, g2g3
+    Fait jouer un tournoi entre deux IA avec 8 parties:
+    - 4 parties avec chaque IA jouant les blancs
+    - 4 ouvertures différentes: e2e4, d2d4, c2c4, g1f3
     
     Args:
         model_path_1: Chemin vers les poids de l'IA 1
@@ -422,17 +412,17 @@ def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2
         model_name_2: Nom de l'IA 2
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Utilisation du device : {device}")
+    #print(f"Utilisation du device : {device}")
     
-    print(f"\nChargement du modèle 1 ({model_name_1}) : {model_path_1}")
+    #print(f"\nChargement du modèle 1 ({model_name_1}) : {model_path_1}")
     model_1 = load_model(model_path_1, device)
     
-    print(f"Chargement du modèle 2 ({model_name_2}) : {model_path_2}")
+    #print(f"Chargement du modèle 2 ({model_name_2}) : {model_path_2}")
     model_2 = load_model(model_path_2, device)
     
-    # Les 5 ouvertures
-    openings = ["e2e4", "d2d4", "c2c4", "g1f3", "g2g3"]
-    opening_names = ["1. e4", "1. d4", "1. c4", "1. Nf3", "1. g3"]
+    # Les 4 ouvertures
+    openings = ["e2e4", "d2d4", "c2c4", "g1f3"]
+    opening_names = ["1. e4", "1. d4", "1. c4", "1. Nf3"]
     #openings = ["g1f3"]
     #opening_names = ["1. Nf3"]
     
@@ -446,20 +436,20 @@ def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2
     total_moves = 0
     draw_reasons = {}
     
-    # 10 parties au total
-    for i in range(10):
+    # 8 parties au total
+    for i in range(8):
         game_num = i + 1
-        opening_idx = i % 5
+        opening_idx = i % 4
         opening = openings[opening_idx]
         opening_name = opening_names[opening_idx]
         
-        print(f"\n\n\n\n{'#'*60}")
-        print(f"PARTIE {game_num}/10")
-        print(f"Ouverture: {opening_name}")
+        #print(f"\n\n\n\n{'#'*60}")
+        #print(f"PARTIE {game_num}/8")
+        #print(f"Ouverture: {opening_name}")
         
-        # Les 5 premières parties: IA 1 joue les blancs
-        # Les 5 dernières parties: IA 2 joue les blancs
-        if i < 5:
+        # Les 4 premières parties: IA 1 joue les blancs
+        # Les 4 dernières parties: IA 2 joue les blancs
+        if i < 4:
             white_model = model_1
             black_model = model_2
             white_name = model_name_1
@@ -470,7 +460,7 @@ def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2
             white_name = model_name_2
             black_name = model_name_1
         
-        print(f"{'#'*60}\n")
+        #print(f"{'#'*60}\n")
         
         stats = play_ai_vs_ai(white_model, black_model, device, white_name, black_name, opening)
         
@@ -512,15 +502,15 @@ def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2
         print(f"{'='*60}")
     
     # Statistiques finales
-    avg_moves = total_moves / 10
+    avg_moves = total_moves / 8
     
     print("\n" + "="*60)
     print("STATISTIQUES FINALES DU TOURNOI")
     print("="*60)
-    print(f"\nTotal de parties : 10")
-    print(f"{model_name_1} - Victoires : {results[model_name_1]} ({results[model_name_1]/10*100:.1f}%)")
-    print(f"{model_name_2} - Victoires : {results[model_name_2]} ({results[model_name_2]/10*100:.1f}%)")
-    print(f"Matchs nuls : {results['Nuls']} ({results['Nuls']/10*100:.1f}%)")
+    print(f"\nTotal de parties : 8")
+    print(f"{model_name_1} - Victoires : {results[model_name_1]} ({results[model_name_1]/8*100:.1f}%)")
+    print(f"{model_name_2} - Victoires : {results[model_name_2]} ({results[model_name_2]/8*100:.1f}%)")
+    print(f"Matchs nuls : {results['Nuls']} ({results['Nuls']/8*100:.1f}%)")
     print(f"\nNombre moyen de coups par partie : {avg_moves:.1f}")
     
     if draw_reasons:
@@ -544,8 +534,8 @@ def play_tournament(model_path_1, model_path_2, model_name_1="MSE", model_name_2
 # Exemple d'utilisation
 if __name__ == "__main__":
     #MODEL_PATH_1 = "ai_pre_training/checkpoints/model_final_L1.pth"
-    #MODEL_PATH_1 = "ai_pre_training/checkpoints/model_final_L1_30M.pth"
-    MODEL_PATH_2 = "ai_pre_training/checkpoints/model_final_MSE.pth"
+    #MODEL_PATH_1 = "ai_pre_training/checkpoints/model_final_L1_30M.pth" 
+    MODEL_PATH_2 = "/home/remi/ai-chess/occidental_chess/genetic_training/checkpoints/generation_4/individual_12.pth" # tester 13, 15, 17 pour gen 5
     MODEL_PATH_1 = "ai_pre_training/checkpoints/model_final_MSE_30M.pth"
     
-    play_tournament(MODEL_PATH_1, MODEL_PATH_2, model_name_1="MSE_30M", model_name_2="MSE")
+    play_tournament(MODEL_PATH_1, MODEL_PATH_2, model_name_1="MSE_30M", model_name_2="individual_12")
