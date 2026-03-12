@@ -1,6 +1,7 @@
 import sys
 from pathlib import Path
 import time
+import numpy as np
 
 # Ajoute le dossier parent 'mon_projet' au PYTHONPATH
 projet_root = Path(__file__).parent.parent.parent
@@ -44,7 +45,7 @@ class Interface_xiangqi:
         else:
             self.plateau = Plateau(self.lignes, self.colonnes)
 
-        if self.J1 == 'humain':
+        if self.J1 == 'humain' or self.J2 != 'humain':
             self.position = "DROIT"
         else:
             self.position = "INVERSE"
@@ -303,6 +304,7 @@ class Interface_xiangqi:
 
         if self.plateau.grille_coups[self.drag_data["lin"]][self.drag_data["col"]] and self.drag_data["item"] != None and 0 <= col < self.colonnes and 0 <= ligne < self.lignes :
             if str(ligne)+str(col) in self.plateau.grille_coups[self.drag_data["lin"]][self.drag_data["col"]]:
+                print(self.unparse([self.drag_data["col"],self.drag_data["lin"],col,ligne]))
                 self.plateau.deplacer_piece(self.drag_data["col"],self.drag_data["lin"],col,ligne)
                 self.dernier_coup = [self.drag_data["lin"],self.drag_data["col"],ligne,col]
                 self.dessiner_plateau()
@@ -351,7 +353,8 @@ class Interface_xiangqi:
 
         self.dessiner_plateau()
 
-    def coup_IA(self, modele: Modele):        
+    def coup_IA(self, modele: Modele):  
+        time.sleep(1)      
         y_init, x_init, y, x = modele.trouver_coup(self.plateau)
         self.plateau.deplacer_piece(x_init,y_init,x,y)
         self.dernier_coup = [y_init,x_init,y,x]
@@ -392,10 +395,70 @@ class Interface_xiangqi:
         self.drag_data["item"] = None
         self.dessiner_plateau()
 
+    def unparse(self, coup):
+        notation = ""
+        plateau = self.plateau.grille
+
+        if self.plateau.tour_actuel == Couleur.RED:
+            plt = np.array([[plateau[len(plateau)-idx-1][len(plateau[0])-jdx-1] for jdx in range(len(plateau[0]))] for idx in range(len(plateau))])
+            ligne,colonne,li,col = self.plateau.lignes-coup[1]-1, self.plateau.colonnes-coup[0]-1, self.plateau.lignes-coup[3]-1, self.plateau.colonnes-coup[2]-1
+
+        else:
+            plt = np.array([[plateau[idx][jdx] for jdx in range(len(plateau[0]))] for idx in range(len(plateau))])
+            ligne,colonne,li,col = coup[1], coup[0], coup[3], coup[2]
+
+        piece = plt[ligne][colonne]
+        piece_nam = piece.symbole_eng()
+
+        colonne_complete = plt[:,colonne]
+        compt_piece=0
+        for symb in colonne_complete:
+            if type(symb)!=str:
+                if symb.symbole() == piece.symbole():
+                    compt_piece+=1
+
+        if compt_piece>1:
+            if piece_nam=="P":
+                piecenum=1
+                for idx in range(ligne+1,self.lignes):
+                    if type(plt[idx][colonne])!=str:
+                        if plt[idx][colonne].symbole()==piece.symbole():
+                            piecenum+=1
+
+                notation+=str(piecenum)
+            
+            else:
+                firstp=True
+                for idx in range(ligne+1,self.lignes):
+                    if type(plt[idx][colonne])!=str:
+                        if plt[idx][colonne].symbole()==piece.symbole():
+                            firstp=False
+
+                if firstp:
+                    notation+="+"
+                else:
+                    notation+="-"
+
+        if piece_nam in "K,R,C,P":
+            if colonne!=col:
+                notation+=piece_nam+str(colonne+1)+"="+str(col+1)
+            else:
+                if ligne>li:
+                    notation+=piece_nam+str(colonne+1)+"-"+str(ligne-li)
+                else:
+                    notation+=piece_nam+str(colonne+1)+"+"+str(li-ligne)
+
+        else:
+            if ligne>li:
+                notation+=piece_nam+str(colonne+1)+"-"+str(col+1)
+            else:
+                notation+=piece_nam+str(colonne+1)+"+"+str(col+1)
+            
+        return notation
 
 # Lancement de l'application
 if __name__ == "__main__":
     root = tk.Tk()
     # Vous pouvez modifier les dimensions ici : InterfaceEchecs(root, lignes=10, colonnes=10)
-    app = Interface_xiangqi(root, Joueur1='humain', Joueur2='Aleatoire')
+    app = Interface_xiangqi(root, Joueur1='humain', Joueur2='IA')
     root.mainloop()

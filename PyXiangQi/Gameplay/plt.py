@@ -47,24 +47,21 @@ class Piece:
             (PieceType.ASSISTANT, Couleur.BLACK): "仕"
         }
         return symboles[(self.type, self.couleur)]
+    
+    def symbole_eng(self) -> str:
+        """Retourne le symbole Unicode de la pièce"""
+        symboles = {
+            (PieceType.SOLDAT): "P",
+            (PieceType.ELEPHANT): "E",
+            (PieceType.CANON): "C",
+            (PieceType.CHARIOT): "R",
+            (PieceType.CHEVAL): "H",
+            (PieceType.GENERAL): "K",
+            (PieceType.ASSISTANT): "A",
+        }
+        return symboles[(self.type)]
 
-class Plateau:
-    #Interface graphique du XiangQi
-    def __init__(self, lignes, colonnes, plt = None, tour_actuel = Couleur.RED):
-        self.lignes = lignes
-        self.colonnes = colonnes
-        self.victoire = None
-        self.echec = None
-        self.piece_echec = []
-        self.repet = 1
-        self.pas_de_prise = 0
-        self.nombre_repet = 1
-
-        if plt:
-            self.grille=plt
-
-        else:
-            self.grille = np.array([[Piece(PieceType.CHARIOT, Couleur.BLACK),Piece(PieceType.CHEVAL, Couleur.BLACK),
+grille_init = np.array([[Piece(PieceType.CHARIOT, Couleur.BLACK),Piece(PieceType.CHEVAL, Couleur.BLACK),
                                  Piece(PieceType.ELEPHANT, Couleur.BLACK),Piece(PieceType.ASSISTANT, Couleur.BLACK),
                                  Piece(PieceType.GENERAL, Couleur.BLACK),
                                  Piece(PieceType.ASSISTANT, Couleur.BLACK),Piece(PieceType.ELEPHANT, Couleur.BLACK),
@@ -89,12 +86,26 @@ class Plateau:
                                  Piece(PieceType.ASSISTANT, Couleur.RED),Piece(PieceType.ELEPHANT, Couleur.RED),
                                  Piece(PieceType.CHEVAL, Couleur.RED),Piece(PieceType.CHARIOT, Couleur.RED)]
                                 ])
-        
+historique_init = ["".join(list(map(lambda x: x if x=="-" else x.symbole(), chain.from_iterable(grille_init))))]
+
+
+class Plateau:
+    #Interface graphique du XiangQi
+    def __init__(self, lignes, colonnes, plt = grille_init, historique=historique_init, tour_actuel = Couleur.RED):
+        self.lignes = lignes
+        self.colonnes = colonnes
+        self.victoire = None
+        self.echec = None
+        self.piece_echec = []
+        self.repet = 1
+        self.pas_de_prise = 0
+        self.nombre_repet = 1
+        self.grille=plt           
         self.tour_actuel = tour_actuel
         self.grille_coups = [[self.calcul_coups_legaux(self.grille, col, ligne) for col in range(self.colonnes)] for ligne in range(self.lignes)]
         self.get_coup_possible = self.all_get_coup_possible()
         
-        self.historique = ["".join(list(map(lambda x: x if x=="-" else x.symbole(), chain.from_iterable(self.grille))))]
+        self.historique = historique
 
     def obtenir_piece_inverse(self, grille, col: int, ligne: int) -> Optional[Piece]:
         """Retourne la pièce à une position donnée"""
