@@ -49,7 +49,7 @@ class Modele:
             self.model_compiled = torch.compile(self.model_compiled.to(torch.bfloat16))
             self.model_compiled.eval()
 
-    def inference_par_morceaux(model, input_tensor, micro_batch_size=16):
+    def inference_par_morceaux(self, model, input_tensor, micro_batch_size=16):
         outputs = []
         outputs2 = []
         # Divise le tenseur en morceaux sur la dimension 0 (le batch)
@@ -57,7 +57,7 @@ class Modele:
             micro_batch = input_tensor[i : i + micro_batch_size]
             
             with torch.inference_mode():
-                o1,o2 = model(micro_batch.to(torch.bfloat16))
+                o1,o2 = model(micro_batch)
                 outputs.append(o1)
                 outputs2.append(o2)
                 
@@ -190,6 +190,11 @@ class Modele:
                 mask_P[0][coup_autorises] = noise 
                 # Mix original tensor with noise
                 P = torch.add((1 - 0.25) * P, 0.25 * mask_P)
+            else:
+                mask_P[0][coup_autorises] = 0.0 
+                # Mix original tensor with noise
+                P = torch.add(P, 0.25 * mask_P)
+
             print("Temps total initialisation : " + str(time.time() - t0))
 
             N_tot = 0
@@ -241,7 +246,7 @@ class Modele:
                         list_cp.append(cp)
                 
             if len(list_not_valuated_coups)>0:
-                Val, Pi = self.inference_par_morceaux(self.model_compiled, torch.stack(list_pos_init_coups)):
+                Val, Pi = self.inference_par_morceaux(self.model_compiled, torch.stack(list_pos_init_coups))
                 
 
             print("Liste des cp : " + str(list_cp))
