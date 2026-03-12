@@ -107,7 +107,7 @@ class Modele:
                         chemin=[]
                         self.MCGS(plateau, dict_coups, childs, chemin, root_node=True)
                         distrib_chemin[0][chemin[1][1]]=distrib_chemin[0][chemin[1][1]]+1/self.nsim
-                        print(chemin)
+                        #print(chemin)
 
                     input_tenseur = torch.from_numpy(self.plt_to_tensor(plateau))
                     V, Pi = self.model(input_tenseur)
@@ -123,8 +123,7 @@ class Modele:
                     dx,dy = self.find_delta(self.inverted_map[n_cp_max%50])
                     li = ligne + dx
                     col = colonne + dy
-                    print(ligne, colonne, li, col)
-                    print(dict_coups)
+                    
                     return ligne, colonne, li, col, P, distrib_chemin, V
           
             #Si modèle pas trouvé : on fait jouer l'humain
@@ -234,7 +233,6 @@ class Modele:
                         Val=0
                     if plt_copy.victoire:
                         Q=Val
-                        print(Q)
                         N=0
                         coups[hash]={}
                         coups[hash]["Q"]=Q
@@ -287,7 +285,6 @@ class Modele:
             plt_copy_copy.deplacer_piece(colonne, ligne, col, li)
             way.append([plt_copy_copy.historique[-1],max_PUCT])
 
-            print(colonne, ligne, col, li)
             print("Total node search : " + str(time.time()-t000))
             self.MCGS(plt_copy_copy,coups,children,way)
 
