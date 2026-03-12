@@ -47,7 +47,7 @@ class MultiHeadSelfAttention(nn.Module):
         scale = math.sqrt(self.d_head)
         attn = (Q @ K.transpose(-2, -1)) / scale          # (B, H, T, T)
         if mask is not None:
-            attn = attn.masked_fill(mask == 0, float("-inf"))
+            attn = attn.masked_fill(mask == 0, -1e9)
 
         attn = self.dropout(F.softmax(attn, dim=-1))
         #attn = F.softmax(attn, dim=-1)
@@ -188,15 +188,15 @@ class DeepNormClassifier(nn.Module):
         self.encoder = DeepNormEncoder(**encoder_kwargs)
         d_model = encoder_kwargs["d_model"]
         self.head = nn.Linear(d_model, num_classes)
+        self.value_head = nn.Linear(d_model, 1)
 
     def forward(self, tokens: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         x = self.encoder(tokens, mask)   # (B, T, d_model)
         cls = x[:, 0, :]              # token [CLS] en position 0
-        head = self.head(cls)
-        eval = torch.tanh(head[:,-1])
-        policy = head[:,:-1]
+        policy = self.head(cls)
+        V = torch.tanh(self.value_head(cls))
 
-        return eval, policy         # (B, num_classes)
+        return V, policy         # (B, num_classes)
 
 
 # ──────────────────────────────────────────────
@@ -218,22 +218,18 @@ class CombinedLoss(nn.Module):
         self.ce    = nn.CrossEntropyLoss()
         self.mse   = nn.MSELoss()
 
-    def forward(self, policy, policy_val, eval, eval_val):
+    def forward(self, policy, policy_val, V, eval_val):
         ce_loss  = self.ce(policy_val, policy)
-        mse_loss = self.mse(eval, eval_val)
+        mse_loss = self.mse(V, eval_val)
 
         self.last_ce  = ce_loss.item()
         self.last_mse = mse_loss.item()
         print(ce_loss, mse_loss)
 
         return self.alpha * ce_loss + self.beta * mse_loss
-    
+        
 class Eval_(nn.Module):
     def __init__(self):
-        """
-        alpha : weight applied to Cross Entropy
-        beta  : weight applied to MSE
-        """
         super().__init__()
         self.SoftMax = nn.Softmax(dim=-1)
 
@@ -267,10 +263,10 @@ if __name__ == "__main__":
     print(f"Encoder output shape : {out.shape}")            # (2, 4501)
 
     # Classifier
-    mask = torch.full((1, 4500), float('-inf'))
+    mask = torch.full((1, 4500), -1e9)
     mask[0][[0,2]] = 0.0
     print(mask)
-    clf = DeepNormClassifier(num_classes=4501, **cfg)
+    clf = DeepNormClassifier(num_classes=4500, **cfg)
     print(f"Classifier - parametres : {count_params(clf):,}")
 
     # Inférence / évaluation
@@ -280,15 +276,15 @@ if __name__ == "__main__":
 
     print(f"Eval shape : {eval.shape}")                     # (2, 1)
     print(f"Policy shape : {policy.shape}")                 # (2, 4501)
-    print(policy, eval)               
+    print(policy, eval)     
 
-    torch.save(clf.state_dict(), os.getcwd() + "\\PyXiangQi\\models\\weights\\v0.pth")
+    torch.save(clf.state_dict(), os.getcwd() + "//PyXiangQi//models//weights//v0.pth")
 
     # Verification du gradient
     clf.train()
     eval, policy = clf(tokens)
     loss=CombinedLoss()
-    tot=loss(policy,policy,eval,eval,mask=mask)
+    tot=loss(policy,policy,eval,eval)
     tot.backward()
 
     print("Backprop OK")

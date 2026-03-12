@@ -4,7 +4,7 @@ import numpy as np
 import sys
 import time
 import torch
-sys.path.append('C://Users//guigz//OneDrive//Documents//Projets//ai-chess')
+sys.path.append('/home/azureuser/ai-chess')
 
 from PyXiangQi.Gameplay.plt import Plateau, Couleur
 from PyXiangQi.models.modele import Modele
@@ -34,7 +34,7 @@ class Autoplay_xiangqi:
                 P_list=[]
                 Pi_list=[]
                 V_list=[]
-                optimizer = torch.optim.Adam(self.modele_rouge.model.parameters(), weight_decay=10**(-4))           
+                optimizer = torch.optim.Adam(self.modele_rouge.model.parameters(), weight_decay=1e-4)           
 
             if Plt:
                 self.plateau = Plt
