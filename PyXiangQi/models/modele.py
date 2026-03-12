@@ -46,8 +46,22 @@ class Modele:
             
             self.model_compiled = DeepNormClassifier(num_classes=4500, **cfg)
             self.model_compiled.load_state_dict(torch.load(modele_path, weights_only=True))
-            self.model_compiled = torch.compile(self.model_compiled)
+            self.model_compiled = torch.compile(self.model_compiled.to(torch.bfloat16))
             self.model_compiled.eval()
+
+    def inference_par_morceaux(model, input_tensor, micro_batch_size=16):
+        outputs = []
+        outputs2 = []
+        # Divise le tenseur en morceaux sur la dimension 0 (le batch)
+        for i in range(0, input_tensor.size(0), micro_batch_size):
+            micro_batch = input_tensor[i : i + micro_batch_size]
+            
+            with torch.inference_mode():
+                o1,o2 = model(micro_batch.to(torch.bfloat16))
+                outputs.append(o1)
+                outputs2.append(o2)
+                
+        return torch.cat(outputs, dim=0), torch.cat(outputs2, dim=0)
 
     #Demande au modèle le prochain coup parmis ceux possibles
     def trouver_coup(self, plateau: Plateau):
@@ -227,9 +241,8 @@ class Modele:
                         list_cp.append(cp)
                 
             if len(list_not_valuated_coups)>0:
-                with torch.inference_mode():
-                    print(torch.stack(list_pos_init_coups).shape)
-                    Val, Pi = self.model_compiled(torch.stack(list_pos_init_coups))
+                Val, Pi = self.inference_par_morceaux(self.model_compiled, torch.stack(list_pos_init_coups)):
+                
 
             print("Liste des cp : " + str(list_cp))
             for idx_cp in range(len(list_pos_init_coups)):
