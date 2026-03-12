@@ -46,8 +46,9 @@ class Modele:
             
             self.model_compiled = DeepNormClassifier(num_classes=4500, **cfg)
             self.model_compiled.load_state_dict(torch.load(modele_path, weights_only=True))
-            self.model_compiled = torch.compile(self.model_compiled.to(torch.bfloat16))
             self.model_compiled.eval()
+            self.model_compiled = torch.compile(self.model_compiled.to(torch.bfloat16))
+            
 
     def inference_par_morceaux(self, model, input_tensor, micro_batch_size=16):
         outputs = []
@@ -123,7 +124,7 @@ class Modele:
                     dx,dy = self.find_delta(self.inverted_map[n_cp_max%50])
                     li = ligne + dx
                     col = colonne + dy
-                    
+
                     return ligne, colonne, li, col, P, distrib_chemin, V
           
             #Si modèle pas trouvé : on fait jouer l'humain

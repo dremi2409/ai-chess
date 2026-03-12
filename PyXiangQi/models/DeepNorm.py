@@ -23,37 +23,39 @@ import torch.nn.functional as F
 # 1. Blocs de base
 # ──────────────────────────────────────────────
 
+import torch.nn.functional as F
+
 class MultiHeadSelfAttention(nn.Module):
     def __init__(self, d_model: int, n_heads: int, dropout: float = 0.1):
         super().__init__()
-        assert d_model % n_heads == 0, "d_model doit être divisible par n_heads"
         self.n_heads = n_heads
         self.d_head = d_model // n_heads
+        self.dropout_p = dropout
 
-        self.q = nn.Linear(d_model, d_model, bias=False)
-        self.k = nn.Linear(d_model, d_model, bias=False)
-        self.v = nn.Linear(d_model, d_model, bias=False)
-        self.out = nn.Linear(d_model, d_model, bias=False)
-        self.dropout = nn.Dropout(dropout)
+        # On combine les projections Q, K, V en une seule couche pour plus de vitesse
+        self.qkv_proj = nn.Linear(d_model, 3 * d_model, bias=False)
+        self.out_proj = nn.Linear(d_model, d_model, bias=False)
 
     def forward(self, x: torch.Tensor, mask: torch.Tensor = None) -> torch.Tensor:
         B, T, C = x.shape
 
-        def split_heads(t):
-            return t.view(B, T, self.n_heads, self.d_head).transpose(1, 2)
+        # 1. Projection QKV groupée (plus efficace que 3 linéaires séparés)
+        qkv = self.qkv_proj(x) # (B, T, 3*C)
+        qkv = qkv.view(B, T, 3, self.n_heads, self.d_head).permute(2, 0, 3, 1, 4)
+        Q, K, V = qkv[0], qkv[1], qkv[2]
 
-        Q, K, V = split_heads(self.q(x)), split_heads(self.k(x)), split_heads(self.v(x))
+        # 2. Utilisation du noyau natif "Flash Attention / Memory Efficient"
+        # Cette ligne remplace TOUTE votre logique matmul + scale + softmax + dropout
+        out = F.scaled_dot_product_attention(
+            Q, K, V, 
+            attn_mask=mask, 
+            dropout_p=self.dropout_p if self.training else 0.0,
+            is_causal=False # Mettez True si c'est un modèle GPT
+        )
 
-        scale = math.sqrt(self.d_head)
-        attn = (Q @ K.transpose(-2, -1)) / scale          # (B, H, T, T)
-        if mask is not None:
-            attn = attn.masked_fill(mask == 0, -1e9)
-
-        attn = self.dropout(F.softmax(attn, dim=-1))
-        #attn = F.softmax(attn, dim=-1)
-        
-        out = (attn @ V).transpose(1, 2).contiguous().view(B, T, C)
-        return self.out(out)
+        # 3. Reconstruction et sortie
+        out = out.transpose(1, 2).contiguous().view(B, T, C)
+        return self.out_proj(out)
 
 
 class FeedForward(nn.Module):
@@ -61,7 +63,7 @@ class FeedForward(nn.Module):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(d_model, d_ff),
-            nn.Mish(),
+            nn.GELU(),
             nn.Dropout(dropout),
             nn.Linear(d_ff, d_model),
             nn.Dropout(dropout),
@@ -143,21 +145,24 @@ class DeepNormEncoder(nn.Module):
 
         # Initialisation DeepNorm : mise a l'echelle par beta
         self._init_weights(beta)
+        self.register_buffer("positions", torch.arange(max_seq_len).unsqueeze(0))
 
     def _init_weights(self, beta: float):
         """
-        Initialisation specifique DeepNorm :
-        - Embeddings : normal(0, 1)
-        - Poids des sous-couches (attention + FFN) : normal(0, beta)
+        Initialisation spécifique DeepNorm adaptée au MHA optimisé.
         """
         nn.init.normal_(self.token_emb.weight, mean=0, std=1.0)
         nn.init.normal_(self.pos_emb.weight,   mean=0, std=1.0)
 
         for layer in self.layers:
-            for module in [layer.attn.q, layer.attn.k, layer.attn.v,
-                           layer.attn.out,
-                           layer.ff.net[0], layer.ff.net[3]]:
-                nn.init.normal_(module.weight, mean=0, std=beta)
+            # Accès au MHA optimisé (qkv_proj et out_proj)
+            nn.init.normal_(layer.attn.qkv_proj.weight, mean=0, std=beta)
+            nn.init.normal_(layer.attn.out_proj.weight, mean=0, std=beta)
+            
+            # Accès au FeedForward (vérifiez les indices selon votre classe FF)
+            # Généralement net[0] est le Linear d'entrée et net[3] le Linear de sortie
+            nn.init.normal_(layer.ff.net[0].weight, mean=0, std=beta)
+            nn.init.normal_(layer.ff.net[3].weight, mean=0, std=beta)
 
     def forward(
         self,
@@ -165,9 +170,8 @@ class DeepNormEncoder(nn.Module):
         mask: torch.Tensor = None,     # (B, 1, 1, T) ou (B, 1, T, T)
     ) -> torch.Tensor:
         B, T = tokens.shape
-        positions = torch.arange(T, device=tokens.device).unsqueeze(0)  # (1, T)
-
-        x = self.drop_emb(self.token_emb(tokens) + self.pos_emb(positions))
+        
+        x = self.drop_emb(self.token_emb(tokens) + self.pos_emb(self.positions[:, :T]))
         #x = self.token_emb(tokens) + self.pos_emb(positions)
 
         for layer in self.layers:
