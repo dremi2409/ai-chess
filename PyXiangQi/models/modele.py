@@ -30,8 +30,8 @@ class Modele:
             #Charger le modèle IA
             # Config legere
             cfg = dict(
-                vocab_size  = 100,
-                max_seq_len = 1620,
+                vocab_size  = 15,
+                max_seq_len = 373,
                 d_model     = 128,
                 n_heads     = 4,
                 n_layers    = 6,
@@ -305,60 +305,67 @@ class Modele:
         grille =plt.grille
         hist=plt.historique
 
-        numpy_array_repet = np.zeros((plt.lignes*plt.colonnes,14+4))
+        print((plt.lignes*plt.colonnes+1)*4+9)
+        numpy_array_repet = np.zeros((plt.lignes*plt.colonnes+1)*4+9)
 
         #Ajouter les pièces au tenseur
-        for pos in range(len(hist[-1:])):
-            plt_ref = hist[-pos-1]
+        for pos in range(min(4,len(hist))):
+            plt_ref = hist[-min(4,len(hist[-1:]))+pos]
             for ligne in range(plt.lignes):
                 for col in range(plt.colonnes):
                     piece = plt_ref[ligne*9+col]
-                    if piece != '-':
-                        match piece:
-                            case "將":
-                                base = 0
-                            case "仕":
-                                base = 1
-                            case "象":
-                                base = 2
-                            case "傌":
-                                base = 3
-                            case "俥":
-                                base = 4
-                            case "砲":
-                                base = 5
-                            case "卒":
-                                base = 6
-                            case "帥":
-                                base = 7
-                            case "士":
-                                base = 8
-                            case "相":
-                                base = 9
-                            case "馬":
-                                base = 10
-                            case "車":
-                                base = 11
-                            case "炮":
-                                base = 12
-                            case "兵":
-                                base = 13
+                    match piece:
+                        case '-':
+                            base = 0
+                        case "將":
+                            base = 1
+                        case "仕":
+                            base = 2
+                        case "象":
+                            base = 3
+                        case "傌":
+                            base = 4
+                        case "俥":
+                            base = 5
+                        case "砲":
+                            base = 6
+                        case "卒":
+                            base = 7
+                        case "帥":
+                            base = 8
+                        case "士":
+                            base = 9
+                        case "相":
+                            base = 10
+                        case "馬":
+                            base = 11
+                        case "車":
+                            base = 12
+                        case "炮":
+                            base = 13
+                        case "兵":
+                            base = 14
 
-                        numpy_array_repet[ligne*9+col][base] = 1
+                    numpy_array_repet[(10*9+1)*pos+ligne*9+col] = base
+            
+            compteur_nulle=0
+            for position in plt.historique:
+                if position == plt_ref:
+                    compteur_nulle+=1
+            numpy_array_repet[(10*9+1)*pos+10*9] = compteur_nulle                   
+                    
+        #Ajouter le tour du joueur
+        match plt.tour_actuel:
+            case Couleur.RED:
+                coeff = 0
 
-                    #Ajouter le tour du joueur
-                    match plt.tour_actuel:
-                        case Couleur.RED:
-                            coeff = 14
+            case Couleur.BLACK:
+                coeff = 1
 
-                        case Couleur.BLACK:
-                            coeff = 15
+        numpy_array_repet[(10*9+1)*4+coeff] = 1
 
-                    numpy_array_repet[ligne*9+col][coeff] = 1 
-
-                    #Regarder les répetitions et le nombre de coups sans manger une pièce 
-                    numpy_array_repet[ligne*9+col][16]= plt.pas_de_prise
-                    numpy_array_repet[ligne*9+col][17] = plt.nombre_repet
+        #Regarder les répetitions et le nombre de coups sans manger une pièce 
+        numpy_array_repet[(10*9+1)*4+2+plt.pas_de_prise//15] = plt.pas_de_prise%15
 
         return np.array([numpy_array_repet.flatten()],dtype=np.int32)
 

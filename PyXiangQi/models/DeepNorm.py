@@ -46,12 +46,9 @@ class MultiHeadSelfAttention(nn.Module):
 
         # 2. Utilisation du noyau natif "Flash Attention / Memory Efficient"
         # Cette ligne remplace TOUTE votre logique matmul + scale + softmax + dropout
-        out = F.scaled_dot_product_attention(
-            Q, K, V, 
-            attn_mask=mask, 
-            dropout_p=self.dropout_p if self.training else 0.0,
-            is_causal=False # Mettez True si c'est un modèle GPT
-        )
+        attn = (Q @ K.transpose(-2,-1)) / math.sqrt(self.d_head)
+        attn = attn.softmax(-1)
+        out = attn @ V
 
         # 3. Reconstruction et sortie
         out = out.transpose(1, 2).contiguous().view(B, T, C)
@@ -248,8 +245,8 @@ if __name__ == "__main__":
 
     # Config legere
     cfg = dict(
-        vocab_size  = 100,
-        max_seq_len = 1620,
+        vocab_size  = 15,
+        max_seq_len = 373,
         d_model     = 128,
         n_heads     = 4,
         n_layers    = 6,
@@ -261,7 +258,7 @@ if __name__ == "__main__":
     encoder = DeepNormEncoder(**cfg)
     print(f"Encoder  - parametres : {count_params(encoder):,}")
 
-    tokens = torch.randint(0, cfg["vocab_size"], (1, 1620))           # batch=1, seq=1620
+    tokens = torch.randint(0, cfg["vocab_size"], (1, 373))           # batch=1, seq=1620
     tokens = torch.stack([tokens[0], tokens[0]])                      # batch=2, seq=1620
     out    = encoder(tokens)
     print(f"Encoder output shape : {out.shape}")            # (2, 4501)
