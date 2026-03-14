@@ -16,7 +16,7 @@ torch.__config__.show()
 
 class Modele:
     #Interface graphique du XiangQi
-    def __init__(self, model_name = None, modele_path=None, training=False, n_sim=2):
+    def __init__(self, model_name = None, modele_path=None, training=False, n_sim=30):
         self.name = model_name
         self.training = training
         self.nsim=n_sim
@@ -32,10 +32,10 @@ class Modele:
             cfg = dict(
                 vocab_size  = 15,
                 max_seq_len = 373,
-                d_model     = 128,
-                n_heads     = 4,
-                n_layers    = 6,
-                d_ff        = 512,
+                d_model     = 64,
+                n_heads     = 2,
+                n_layers    = 4,
+                d_ff        = 128,
                 dropout     = 0.1,
             )
 
@@ -80,7 +80,7 @@ class Modele:
                     with torch.no_grad():
                         eval_val, policy_val = self.model(input_tenseur)
                     
-                    mask=torch.full((1, 4500), -1e9)
+                    mask=torch.full((1, 4500), float("-inf"))
                     coup_autorises=self.map_coups(plateau.get_coup_possible)
                     mask[0][coup_autorises] = 0.0
 
@@ -113,7 +113,7 @@ class Modele:
                     input_tenseur = torch.from_numpy(self.plt_to_tensor(plateau))
                     V, Pi = self.model(input_tenseur)
                     
-                    mask=torch.full((1, 4500), -1e9)
+                    mask=torch.full((1, 4500), float("-inf"))
                     coup_autorises=self.map_coups(plateau.get_coup_possible)
                     mask[0][coup_autorises] = 0.0
 
@@ -125,7 +125,7 @@ class Modele:
                     li = ligne + dx
                     col = colonne + dy
 
-                    return ligne, colonne, li, col, P, distrib_chemin, V
+                    return ligne, colonne, li, col, P, distrib_chemin.float(), V
           
             #Si modèle pas trouvé : on fait jouer l'humain
             case _:
@@ -165,13 +165,13 @@ class Modele:
 
 
         else:
-            print("Initialisation des valuations")
+            #print("Initialisation des valuations")
             t0=time.time()
             input_tenseur = torch.from_numpy(self.plt_to_tensor(plt))
             with torch.inference_mode():
                 V, Pi = self.model_compiled(input_tenseur)
             t1=time.time()
-            mask=torch.full((1, 4500), -1e9)
+            mask=torch.full((1, 4500), float("-inf"))
             coup_autorises=self.map_coups(plt.get_coup_possible)
             mask[0][coup_autorises] = 0.0   
             t2=time.time()
@@ -180,10 +180,10 @@ class Modele:
                 P=self.eval(policy_val=Pi,mask=mask)
             P=P.clone()
 
-            mask_P=torch.full((1, 4500), -1e9)
-            mask_Q=torch.full((1, 4500), -1e9)
+            mask_P=torch.full((1, 4500), float("-inf"))
+            mask_Q=torch.full((1, 4500), float("-inf"))
             t3=time.time()
-            print(t3-t2,t2-t1,t1-t0)
+            #print(t3-t2,t2-t1,t1-t0)
 
             if root_node:
                 noise = torch.distributions.Dirichlet(torch.tensor([0.3 for _ in range(len(coup_autorises))])).sample()
@@ -195,31 +195,16 @@ class Modele:
                 # Mix original tensor with noise
                 P = torch.add(P, 0.25 * mask_P)
 
-            print("Temps total initialisation : " + str(time.time() - t0))
+            #print("Temps total initialisation : " + str(time.time() - t0))
 
             N_tot = 0
             t00=time.time()
-                
-            list_childs=[]
-            list_not_valuated_coups=[]
-            list_pos_init_coups=[]
-            list_cp=[]
-            t00=time.time()
-            print("Inférence des coups")
-            for cp in coup_autorises:
-                ligne = (cp // 50) % 10
-                colonne = cp // 500
-                dx,dy = self.find_delta(self.inverted_map[cp%50])
-                li = ligne + dx
-                col = colonne + dy
 
-                plt_copy = Plateau(lignes=10, colonnes=9, plt=deepcopy(plt.grille), 
-                                        historique=deepcopy(plt.historique), tour_actuel=deepcopy(plt.tour_actuel)) 
-                plt_copy.deplacer_piece(colonne, ligne, col, li)
-                hash = plt_copy.historique[-1]
-                list_childs.append({"pos":cp, "hash":hash})
+            try:
+                for cp_tot in children[init_hash]:
+                    hash=cp_tot["hash"]
+                    cp=cp_tot["pos"]
 
-                try:
                     Q=coups[hash]["Q"]
                     N=coups[hash]["N"]
                     N_tot+=N
@@ -227,46 +212,82 @@ class Modele:
                     mask_Q[0][cp] = -Q
                     P[0][cp] = P[0][cp]/(1+N)
 
-                except:
-                    if plt_copy.victoire==Couleur.RED or plt_copy.victoire==Couleur.BLACK:
-                        Val=-1
-                    elif plt_copy.victoire==Couleur.GREY:
-                        Val=0
-                    if plt_copy.victoire:
-                        Q=Val
-                        N=0
-                        coups[hash]={}
-                        coups[hash]["Q"]=Q
-                        coups[hash]["N"]=N
-                    else:
-                        input_tenseur = torch.from_numpy(self.plt_to_tensor(plt_copy))
-                        list_not_valuated_coups.append(plt_copy.historique[-1])
-                        list_pos_init_coups.append(input_tenseur[0])
-                        list_cp.append(cp)
-                
-            if len(list_not_valuated_coups)>0:
-                Val, Pi = self.inference_par_morceaux(self.model_compiled, torch.stack(list_pos_init_coups))
-                
+                #print("recouvrement des valeurs effectué")
+            
+            except:
+                list_childs=[]
+                list_not_valuated_coups=[]
+                list_pos_init_coups=[]
+                list_cp=[]
+                #print("Inférence des coups")
+                for cp in coup_autorises:
+                    ligne = (cp // 50) % 10
+                    colonne = cp // 500
+                    dx,dy = self.find_delta(self.inverted_map[cp%50])
+                    li = ligne + dx
+                    col = colonne + dy
 
-            print("Liste des cp : " + str(list_cp))
-            for idx_cp in range(len(list_pos_init_coups)):
-                hash=list_not_valuated_coups[idx_cp]
-                Q=Val[idx_cp].item()
-                cp=list_cp[idx_cp]
-                N=0
+                    plt_copy = Plateau(lignes=10, colonnes=9, plt=deepcopy(plt.grille), 
+                                            historique=deepcopy(plt.historique), tour_actuel=deepcopy(plt.tour_actuel)) 
+                    plt_copy.deplacer_piece(colonne, ligne, col, li)
+                    hash = plt_copy.historique[-1]
+                    list_childs.append({"pos":cp, "hash":hash})
+
+                    try:
+                        Q=coups[hash]["Q"]
+                        N=coups[hash]["N"]
+                        N_tot+=N
+
+                        mask_Q[0][cp] = -Q
+                        P[0][cp] = P[0][cp]/(1+N)
+
+                    except:
+                        if plt_copy.victoire==Couleur.RED or plt_copy.victoire==Couleur.BLACK:
+                            Val=-1
+                        elif plt_copy.victoire==Couleur.GREY:
+                            Val=0
+                        if plt_copy.victoire:
+                            Q=Val
+                            N=0
+                            coups[hash]={}
+                            coups[hash]["Q"]=Q
+                            coups[hash]["N"]=N
+                        else:
+                            input_tenseur = torch.from_numpy(self.plt_to_tensor(plt_copy))
+                            list_not_valuated_coups.append(plt_copy.historique[-1])
+                            list_pos_init_coups.append(input_tenseur[0])
+                            list_cp.append(cp)
+
+                #print("Temps simulation : " + str(time.time()-t00))
                     
-                coups[hash]={}
-                coups[hash]["Q"]=Q
-                coups[hash]["N"]=N
+                if len(list_not_valuated_coups)>0:     
+                    tt = time.time()
+                    Val, Pi = self.inference_par_morceaux(self.model_compiled, torch.stack(list_pos_init_coups))     
+                    #print("temps total d'inférence : " + str(time.time()-tt))
+                    
+                td = time.time()
+                #print("Liste des cp : " + str(list_cp))
+                for idx_cp in range(len(list_pos_init_coups)):
+                    hash=list_not_valuated_coups[idx_cp]
+                    Q=Val[idx_cp].item()
+                    cp=list_cp[idx_cp]
+                    N=0
                         
-                mask_Q[0][cp] = -Q
-                P[0][cp]=P[0][cp]/(N+1)
+                    coups[hash]={}
+                    coups[hash]["Q"]=Q
+                    coups[hash]["N"]=N
+                            
+                    mask_Q[0][cp] = -Q
+                    P[0][cp]=P[0][cp]/(N+1)
 
-            print("temps total d'exploration des coup : " + str(time.time()-t00))
-            children[init_hash]=list_childs
-            print("Check_sum") 
-            print(len(coup_autorises),(mask_Q[0] > -1e8).sum().item(),(P[0] > -1e8).sum().item())
+                children[init_hash]=list_childs
 
+                #print("Temps de documentation : "+str(time.time()-td))
+
+            #print("temps total d'exploration des coup : " + str(time.time()-t00))
+            #print("Check_sum") 
+            #print(len(coup_autorises),(mask_Q[0] > -1e8).sum().item(),(P[0] > -1e8).sum().item())
+            #print(len(coup_autorises))
             
             if N_tot>0:
                 PUCT=torch.add(mask_Q,torch.mul(P,math.sqrt(N_tot)))
@@ -286,7 +307,7 @@ class Modele:
             plt_copy_copy.deplacer_piece(colonne, ligne, col, li)
             way.append([plt_copy_copy.historique[-1],max_PUCT])
 
-            print("Total node search : " + str(time.time()-t000))
+            #print("Total node search : " + str(time.time()-t000))
             self.MCGS(plt_copy_copy,coups,children,way)
 
                     
@@ -305,7 +326,6 @@ class Modele:
         grille =plt.grille
         hist=plt.historique
 
-        print((plt.lignes*plt.colonnes+1)*4+9)
         numpy_array_repet = np.zeros((plt.lignes*plt.colonnes+1)*4+9)
 
         #Ajouter les pièces au tenseur

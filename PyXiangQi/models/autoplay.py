@@ -28,6 +28,8 @@ class Autoplay_xiangqi:
 
         self.lignes = lignes
         self.colonnes = colonnes
+        self.loss=CombinedLoss()
+
 
         for _ in range(n_games):
             if training:
@@ -103,9 +105,12 @@ class Autoplay_xiangqi:
                             print("\n\nNulle...")
 
                 else: #training
-                    y_init, x_init, y, x, P, PI, V = self.modele_rouge.trouver_coup(self.plateau)
+                    tcoup=time.time()
+                    y_init, x_init, y, x, P, Pi, V = self.modele_rouge.trouver_coup(self.plateau)
+                    print(P.sum(),Pi.sum())
+                    print(torch.topk(distrib_chemin,k=5))
                     P_list.append(P)
-                    Pi_list.append(PI)
+                    Pi_list.append(Pi)
                     V_list.append(V)
                     
                     self.plateau.deplacer_piece(x_init,y_init,x,y)
@@ -114,40 +119,31 @@ class Autoplay_xiangqi:
                         self.dessiner_plateau()
                         # Message de victoire
                         print("\n\nVictoire rouge !")
-
-                        Vi_list=np.array([(-1.0)**idx for idx in range(len(V))])
-                        V_list=np.array(V_list)
-                        print(P_list,Pi_list,Vi_list,V_list)
-                        loss=CombinedLoss()
-                        output=loss(torch.stack(Pi_list),torch.stack(P_list),torch.from_numpy(Vi_list),torch.from_numpy(V_list))
-                        output.backward()                 # calcule les gradients
-                        optimizer.step()                  # met à jour les poids
+                        V_list = torch.stack(V_list).squeeze()
+                        Vi_list=np.array([(-1.0)**idx for idx in range(len(V_list))])
 
                     elif self.plateau.victoire == Couleur.BLACK:
                         self.dessiner_plateau()
-                        # Message de victoire
                         print("\n\nVictoire noire !")
-
-                        Vi_list=np.array([(-1.0)**(idx+1) for idx in range(len(V))])
-                        V_list=np.array(V_list)
-                        print(P_list,Pi_list,Vi_list,V_list)
-                        loss=CombinedLoss()
-                        output=loss(torch.stack(Pi_list),torch.stack(P_list),torch.from_numpy(Vi_list),torch.from_numpy(V_list))
-                        output.backward()                 # calcule les gradients
-                        optimizer.step()                  # met à jour les poids
+                        V_list = torch.stack(V_list).squeeze()
+                        Vi_list=np.array([(-1.0)**(idx+1) for idx in range(len(V_list))]).astype(float)
 
                     elif self.plateau.victoire == Couleur.GREY:
                         self.dessiner_plateau()
-                        # Message de victoire
                         print("\n\nNulle...")
+                        V_list = torch.stack(V_list).squeeze()
+                        Vi_list=np.array([0.0 for i in range(len(V_list))])
 
-                        Vi_list=np.array([0.0 for _ in range(len(V))])
-                        V_list=np.array(V_list)
+                    if self.plateau.victoire != None:
+                        print(V_list.grad_fn)
                         print(P_list,Pi_list,Vi_list,V_list)
-                        loss=CombinedLoss()
-                        output=loss(torch.stack(Pi_list),torch.stack(P_list),torch.from_numpy(Vi_list),torch.from_numpy(V_list))
+                        print(torch.stack(Pi_list).shape,torch.stack(P_list).shape,torch.from_numpy(Vi_list).shape,(V_list).shape)
+                        output=self.loss(torch.stack(Pi_list),torch.stack(P_list),torch.from_numpy(Vi_list),V_list)
                         output.backward()                 # calcule les gradients
                         optimizer.step()                  # met à jour les poids
+
+
+                    print("Temps du coup : " + str(time.time()-tcoup))
 
     def parse(self, input):
         try:

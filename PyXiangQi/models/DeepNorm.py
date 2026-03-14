@@ -247,10 +247,10 @@ if __name__ == "__main__":
     cfg = dict(
         vocab_size  = 15,
         max_seq_len = 373,
-        d_model     = 128,
-        n_heads     = 4,
-        n_layers    = 6,
-        d_ff        = 512,
+        d_model     = 64,
+        n_heads     = 2,
+        n_layers    = 4,
+        d_ff        = 128,
         dropout     = 0.1,
     )
 
